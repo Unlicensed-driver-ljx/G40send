@@ -1,0 +1,104 @@
+#include "fasttrack.h"
+
+FastTrack::FastTrack()
+{
+    g_param = GlobalParameter::getInstance();
+    m_bTrack = false;
+    m_loop_track = 0;
+    m_count_lost = 0;
+    m_count_occlude = 0;
+
+    m_thresh[0] = g_param->trackParam.thresh_lost;
+    m_thresh[1] = g_param->trackParam.thresh_occlude;
+    m_occlude_time = g_param->trackParam.occlude_time;
+
+    m_kcf = new KCFTracker(true, true, false, true);
+}
+
+FastTrack::~FastTrack()
+{
+    close();
+}
+
+bool FastTrack::init()
+{
+    close();
+
+    m_loop_track = 0;
+    m_count_lost = 0;
+    m_count_occlude = 0;
+
+    m_yolo.init();
+
+    return true;
+}
+
+void FastTrack::close()
+{
+    stopTrack();
+}
+
+void FastTrack::startTrack()
+{
+    if (m_bTrack == false)
+    {
+        m_bTrack = true;
+        start(QThread::NormalPriority);
+    }
+}
+
+void FastTrack::stopTrack()
+{
+    m_bTrack = false;
+}
+
+void FastTrack::detect()
+{
+    if(m_frame.empty() || m_frame.size <= 0)
+    {
+        qDebug() << "FastTrack::detect() error input frame";
+        return;
+    }
+
+    /// detect to track
+    if(g_param->trackParam.bAutoDetect2Track == true)
+    {
+        if(g_param->yolo_res.boxes.size() > 0)
+        {
+            float max_conf = 0;
+            int idx = 0;
+            for(int i = 0; i < (int)g_param->yolo_res.prob.size();i++)
+            {
+                if(max_conf < g_param->yolo_res.prob[i])
+                {
+                    max_conf = g_param->yolo_res.prob[i];
+                    idx = i;
+                }
+            }
+
+            g_param->trackParam.trackGateRoi = g_param->yolo_res.boxes[idx];
+            g_param->trackParam.state = TRACK;
+        }
+    }
+}
+
+void FastTrack::track()
+{
+
+}
+
+void FastTrack::predict()
+{
+
+}
+
+void FastTrack::checkTargetAvailable()
+{
+
+}
+
+void FastTrack::run()
+{
+
+}
+

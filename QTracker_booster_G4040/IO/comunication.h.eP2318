@@ -1,0 +1,27 @@
+#ifndef COMUNICATION_H
+#define COMUNICATION_H
+
+#include <QObject>
+#include <QDebug>
+#include "serialport.h"
+
+const int RECV_MAIN_CMD = 16;
+const int SEND_MAIN_CMD = 12;
+const int SEND_MAIN_DATA = 81;
+
+class Comunication : public QThread
+{
+public:
+    Comunication();
+    bool init();
+
+    bool decodeCommand(QByteArray data);
+    //void encodeData();
+private:
+    SerialPort m_port_ttyS0;
+    SerialPort m_port_ttyTHS2;
+
+
+};
+
+#endif // COMUNICATION_H

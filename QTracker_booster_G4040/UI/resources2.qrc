@@ -1,0 +1,15 @@
+<RCC>
+    <qresource prefix="/new/prefix1">
+        <file>blue.jpg</file>
+        <file>green.jpg</file>
+        <file>red.jpg</file>
+        <file>yellow.jpg</file>
+        <file>MagnifyingGlass.jpg</file>
+        <file>savetext.jpg</file>
+        <file>savefile.jpg</file>
+        <file>yellow.png</file>
+        <file>red.png</file>
+        <file>green.png</file>
+        <file>gray.png</file>
+    </qresource>
+</RCC>

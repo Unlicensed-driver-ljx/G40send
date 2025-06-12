@@ -1,0 +1,74 @@
+#include <opencv2/opencv.hpp>
+#include <iostream>
+
+int main() {
+    // 1. 读取原始彩色图像
+    cv::Mat src = cv::imread("input.jpg", cv::IMREAD_COLOR); // 读取为8 bit彩色图像
+    if (src.empty()) {
+        std::cerr << "Error: Unable to open input image!" << std::endl;
+        return -1;
+    }
+
+    // 2. 调整图像分辨率
+    cv::Mat resized;
+    cv::resize(src, resized, cv::Size(6144, 6144), 0, 0, cv::INTER_LINEAR); // 放大到6144×6144
+
+    // 3. 转换为16 bit
+    cv::Mat dst;
+    resized.convertTo(dst, CV_16UC3); // 转换为16 bit无符号整数
+	
+	// 4. 获取图像的二进制数据
+    const uint16_t* data = reinterpret_cast<const uint16_t*>(dst.data); // 将data指针转换为uint16_t类型
+    size_t total_pixels = dst.rows * dst.cols * 3; // 总像素数（每个像素3个通道）
+    size_t total_bytes = total_pixels * sizeof(uint16_t); // 总字节数
+
+    // 4. 保存为支持16 bit的格式（如TIFF）
+    std::vector<int> compression_params;
+    compression_params.push_back(cv::IMWRITE_TIFF_COMPRESSION);
+    compression_params.push_back(1); // 使用LZW压缩
+    cv::imwrite("output_16bit.tiff", dst, compression_params);
+
+    std::cout << "Image converted and saved as output_16bit.tiff" << std::endl;
+    return 0;
+}
+
+#include <opencv2/opencv.hpp>
+#include <iostream>
+#include <fstream>
+
+int main() {
+    // 1. 读取16 bit TIFF图像
+    cv::Mat img = cv::imread("output_16bit.tiff", cv::IMREAD_UNCHANGED); // 读取为16 bit图像
+    if (img.empty()) {
+        std::cerr << "Error: Unable to open the image!" << std::endl;
+        return -1;
+    }
+
+    // 2. 检查图像属性
+    std::cout << "Image size: " << img.cols << "x" << img.rows << std::endl;
+    std::cout << "Image type: " << img.type() << std::endl;
+
+    // 3. 确保图像是16 bit且3通道（RGB）
+    if (img.type() != CV_16UC3) {
+        std::cerr << "Error: Image is not in 16 bit RGB format!" << std::endl;
+        return -1;
+    }
+
+    // 4. 获取图像的二进制数据
+    const uint16_t* data = reinterpret_cast<const uint16_t*>(img.data); // 将data指针转换为uint16_t类型
+    size_t total_pixels = img.rows * img.cols * 3; // 总像素数（每个像素3个通道）
+    size_t total_bytes = total_pixels * sizeof(uint16_t); // 总字节数
+
+    // 5. 将二进制数据保存到文件
+    std::ofstream file("image_data.bin", std::ios::binary);
+    if (!file) {
+        std::cerr << "Error: Unable to open output file!" << std::endl;
+        return -1;
+    }
+
+    file.write(reinterpret_cast<const char*>(data), total_bytes); // 写入二进制数据
+    file.close();
+
+    std::cout << "Image data saved to image_data.bin" << std::endl;
+    return 0;
+}

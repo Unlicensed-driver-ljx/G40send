@@ -1,0 +1,116 @@
+#include "g400camrea.h"
+
+G400Camrea::G400Camrea()
+{
+    m_img_width = g_param->displayParam.VS_size.width;
+    m_img_height = g_param->displayParam.VS_size.height;
+
+    m_mono16 = Mat::zeros(g400_width,g400_height,CV_16UC1);
+    m_mono8 = Mat::zeros(m_img_height,m_img_width,CV_8UC1);
+
+    m_buffer_idx = 0;
+}
+
+G400Camrea::~G400Camrea()
+{
+    close();
+}
+
+bool G400Camrea::init()
+{
+    m_buffer_idx = 0;
+    /// close first
+    close();
+    /// open
+    int ret = pxd_PIXCIopen(DRIVERPARMS, "", FORMATFILE);
+
+    if(ret < 0)
+    {
+        /// error report
+        qDebug() << "pxd_PIXCIopen error: " << ret;
+        pxd_mesgFault(UNITSMAP);
+        return false;
+    }
+
+    qDebug() << "pxd_PIXCIopen success: " << ret;
+
+//    if (pxd_eventCapturedFieldCreate(1, SIGUSR1, NULL) >= 0)
+//    {
+//        printf("Hooked signal upon captured field");
+//    }
+
+    pxd_goLivePair(UNITSMAP, 1, 2);
+    pxd_mesgFault(UNITSMAP);
+
+    ///info
+//    qDebug() << "Image frame buffer memory size: " << pxd_infoMemsize(UNITSMAP)/1024;
+//    qDebug() << "Image frame buffers           : " << pxd_imageZdim();
+//    qDebug() << "Number of boards              : " << pxd_infoUnits();
+
+//    qDebug() << "Image resolution:";
+//    qDebug() << "xdim           = " << pxd_imageXdim();
+//    qDebug() << "ydim           = " << pxd_imageYdim();
+//    qDebug() << "colors         = " << pxd_imageCdim();
+//    qDebug() << "bits per pixel = " << pxd_imageCdim()*pxd_imageBdim();
+
+    qDebug() <<"G400 Visual Camera width: "<<pxd_imageXdim() <<", height: " << pxd_imageYdim();
+
+    if (pxd_serialConfigure(UNITSMAP, 0,  9600, 8, 0, 1, 0, 0, 0) < 0)
+    {
+        qDebug() << "pxd_serialConfigure error";
+        return false;
+    }
+
+    return true;
+}
+
+void G400Camrea::close()
+{
+    stopCapture();
+    msleep(10);
+    pxd_PIXCIclose();
+}
+
+void G400Camrea::startCapture()
+{
+    if(m_bCapture == false)
+    {
+        m_bCapture = true;
+        start(QThread::NormalPriority);
+    }
+}
+
+void G400Camrea::stopCapture()
+{
+    m_bCapture = false;
+}
+
+bool G400Camrea::readCurrentFrame()
+{
+    if (pxd_capturedBuffer(UNITSMAP) == m_buffer_idx)
+    {
+        //qDebug() << "m_buffer_idx error = " << pxd_capturedBuffer(UNITSMAP);
+        return false;
+    }
+    m_buffer_idx = pxd_capturedBuffer(UNITSMAP);
+    //qDebug() << "m_buffer_idx = " << m_buffer_idx;
+    char color_space[] = "Grey";
+
+    ushort* mono16_raw = (ushort*)(m_mono16.data);
+    if(mono16_raw == NULL)
+    {
+        qDebug() << "G400Camrea::readCurrentFrame mono16_raw NULL";
+        return false;
+    }
+
+    int count = pxd_readushort(UNITSMAP, m_buffer_idx, 0, 0, g400_width, g400_height, mono16_raw, g400_width*g400_height, color_space);
+    if(count != g400_width*g400_height)
+    {
+        qDebug() << "G400Camrea::readCurrentFrame() pxd_readushort size error";
+        return false;
+    }
+    /// resize
+    m_mono16 = cv::resize(m_mono16, cv::Size(m_img_width, m_img_height));
+    return true;
+}
+

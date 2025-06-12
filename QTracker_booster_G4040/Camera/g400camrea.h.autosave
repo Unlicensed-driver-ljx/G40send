@@ -1,0 +1,228 @@
+#ifndef G400CAMREA_H
+#define G400CAMREA_H
+
+#include <QObject>
+#include "camerabase.h"
+#include "opencv2/opencv.hpp"
+#include "opencv2/core.hpp"
+/*
+ *  NECESSARY INCLUDES:
+ */
+#include <stdio.h>		// c library
+#include <signal.h>		// c library
+#include <stdlib.h>		// c library
+#include <stdarg.h>		// c library
+#include <unistd.h>		// c library
+#include <limits.h>		// c library
+#include "xcliball.h"		// function prototypes
+#if USE_PXIPL
+  #include "pxipl.h"		// function prototypes
+#endif
+
+using namespace cv;
+/*    g++ -DC_GNU64=400 -DOS_LINUX -I../../inc testopencvM.cpp ../../lib/xclib_aarch64.a -lm -o testopencvM  `pkg-config --cflags --libs opencv`
+ *
+ *	xclibel1.c	External	20-Jan-2017
+ *
+ *	Copyright (C)  2002-2016  EPIX, Inc.  All rights reserved.
+ *
+ *	Example program for XCLIB C Library, SCF Level functions.
+ *	Example assumes Linux 'command line' environment.
+ *
+ */
+
+
+
+/*
+ *  INSTRUCTIONS:
+ *
+ *  1)	Set 'define' options below according to the intended camera
+ *	and video format.
+ *
+ *	For PIXCI(R) SV2, SV3, SV4, SV5, SV5A, SV5B, SV5L, and SV6 frame grabbers
+ *	common choices are RS-170, NSTC, NTSC/YC, CCIR, PAL, or PAL/YC.
+ *	(The SV5A and SV5B do not support NTSC/YC or PAL/YC).
+ *	For PIXCI(R) SV7 frame grabbers
+ *	common choices are RS-170, NSTC, CCIR, or PAL.
+ *	For PIXCI(R) SV8 frame grabbers
+ *	common choices are RS-170, NSTC, NTSC/YC, CCIR, PAL, PAL/YC.
+ *
+ *	For PIXCI(R) A, CL1, CL2, CL3SD, D, D24, D32, D2X, D3X, D3XE, E1, E1DB, E4, E4DB, E8, E8CAM, E8DB, e104x4
+*	EB1, EB1-POCL, EB1mini, EC1, ECB1, ECB1-34, ECB2, EL1, EL1DB, ELS2, SI, SI1, SI2, and SI4
+ *	frame grabbers, use "default" to select the default format for the camera
+ *	for which the PIXCI(R) frame grabber is intended.
+ *	For non default formats, use XCAP to save the video set-up to a
+ *	file, and set FORMAT to the saved file's name.
+ *	For camera's with RS-232 control, note that the saved
+ *	video set-up only resets the PIXCI(R) frame grabber's
+ *	settings, but XCLIB does not reset the camera's settings.
+ *
+ *	Alternately, this could be modified to use any
+ *	other convention chosen by the programmer to allow
+ *	run time selection of the video format and resolution.
+ *
+ */
+
+#if !defined(FORMAT) && !defined(FORMATFILE)
+                  // For PIXCI(R) SV2, SV3, SV4, SV5, SV5B, SV5L, SV6
+  //#define FORMAT  "RS-170"	  // RS-170 on input 2
+  //#define FORMAT  "NTSC"	  // NTSC on input 2
+  //#define FORMAT  "NTSC/YC"	  // NSTC S-Video on input 1		(N/A on SV5A,SV5B)
+  //#define FORMAT  "CCIR"	  // CCIR on input 2
+  //#define FORMAT  "PAL"	  // PAL (B,D,G,H,I) on input 2
+  //#define FORMAT  "PAL/YC"	  // PAL (B,D,G,H,I) S-Video on input 1 (N/A on SV5A,SV5B)
+   // #define FORMAT  "default"	  // NSTC S-Video on input 1
+
+                  // For PIXCI(R) SV7
+  //#define FORMAT  "RS-170"	  // RS-170
+  //#define FORMAT  "NTSC"	  // NTSC
+  //#define FORMAT  "CCIR"	  // CCIR
+  //#define FORMAT  "PAL"	  // PAL
+  //#define FORMAT  "default"	  // NSTC
+
+                  // For PIXCI(R) SV8
+  //#define FORMAT  "RS-170"	  // RS-170 on BNC 0
+  //#define FORMAT  "NTSC"	  // NTSC on BNC 0
+  //#define FORMAT  "NTSC/YC"	  // NSTC S-Video
+  //#define FORMAT  "CCIR"	  // CCIR on BNC 0
+  //#define FORMAT  "PAL"	  // PAL on BNC 0
+  //#define FORMAT  "PAL/YC"	  // PAL (B,D,G,H,I) S-Video
+  //#define FORMAT  "default"	  // NSTC on BNC 0
+
+                  // For PIXCI(R) A, CL1, CL2, CL3SD, D, D24, D32,
+                  // D2X, D3X, D3XE, E1, E1DB, E4, E4DB, E8, E8CAM, E8DB, e104x4,
+                  // EB1, EB1-POCL, EB1mini, EC1, ECB1, ECB1-34, ECB2, EL1, EL1DB,
+                  // ELS2, SI, SI1, SI2, SI4
+  //#define FORMAT  "default"	  // as per board's intended camera
+
+                      // For any PIXCI(R) frame grabber
+  #define FORMATFILE	"xcvidset.fmt"	  // using format file saved by XCAP
+#endif
+
+
+/*
+ *  2.1) Set number of expected PIXCI(R) image boards.
+ *  The XCLIB Simple 'C' Functions expect that the boards are
+ *  identical and operated at the same resolution.
+ *
+ *  For PIXCI(R) frame grabbers with multiple, functional units,
+ *  the XCLIB presents the two halves of the
+ *  PIXCI(R) E1DB, E4DB, E8CAM, E8DB, e104x4-2f, ECB2, EL1DB, ELS2, SI2, or SV7 frame grabbers,
+ *  or the three parts of the PIXCI(R) e104x4-f2b frame grabber,
+ *  or the four quarters of the PIXCI(R) e104x4-4b or SI4 frame grabbers,
+ *  as two, three, or four independent PIXCI(R) frame grabbers, respectively.
+ *
+ *  This example expects only one unit.
+ */
+#if !defined(UNITS)
+    #define UNITS	1
+#endif
+#define UNITSMAP    ((1<<UNITS)-1)  // shorthand - bitmap of all units
+
+
+/*
+ *  2.2) Optionally, set driver configuration parameters.
+ *  These are normally left to the default, "".
+ *  The actual driver configuration parameters include the
+ *  desired PIXCI(R) frame grabbers, but to make configuation easier,
+ *  code, below, will automatically add board selection to this.
+ *
+ *  Note: Under Linux, the image frame buffer memory can't be set as
+ *  a run time option. It MUST be set via insmod so the memory can
+ *  be reserved during Linux's initialization.
+ */
+#if !defined(DRIVERPARMS)
+  //#define DRIVERPARMS "-QU 0"       // don't use interrupts
+  //#define DRIVERPARMS "-IM 8192"    // request 8192 mbyte of frame buffer memory
+    #define DRIVERPARMS ""	      // default
+#endif
+
+
+/*
+ *  3)	Choose whether the optional PXIPL Image Processing Library
+ *	is available.
+ */
+#if !defined(USE_PXIPL)
+    #define USE_PXIPL	0
+#endif
+
+
+/*
+ *  4) Select directory for saving of images.
+ *  This example will not overwrite existing images files;
+ *  so directory selection is not critical.
+ */
+#if !defined(IMAGEFILE_DIR)
+    #define IMAGEFILE_DIR    "."
+#endif
+
+
+/*
+ *  5a) Compile with GCC w/out PXIPL for 32 bit Linux on Intel i386 as:
+ *
+ *	    gcc -DC_GNU32=400 -DOS_LINUX -I../../inc xclibel1.c ../../lib/xclib_i386.a -lm
+ *
+ *	Compile with GCC with PXIPL for 32 bit Linux on Intel i386 as:
+ *
+ *	    gcc -DC_GNU32=400 -DOS_LINUX -I../../inc xclibel1.c ../../lib/pxipl_i386.a ../../lib/xclib_i386.a -lm
+ *
+ *	Compile with GCC w/out PXIPL for 64 bit Linux on Intel x86_64 as:
+ *
+ *	    gcc -DC_GNU64=400 -DOS_LINUX -I../../inc xclibel1.c ../../lib/xclib_x86_64.a -lm
+ *
+ *	Compile with GCC with PXIPL for 64 bit Linux on Intel x86_64  as:
+ *
+ *	    gcc -DC_GNU64=400 -DOS_LINUX -I../../inc xclibel1.c ../../lib/pxipl_x86_64.a ../../lib/xclib_x86_64.a -lm
+ *
+ *	Compile with GCC w/out PXIPL for 64 bit Linux on nVidia/ARM TX1 as:
+ *
+ *	    gcc -DC_GNU64=400 -DOS_LINUX -I../../inc xclibel1.c ../../lib/xclib_aarch64.a -lm
+ *
+ *	Compile with GCC with PXIPL for 64 bit Linux on nVidia/ARM TX1 as:
+ *
+ *	    gcc -DC_GNU64=400 -DOS_LINUX -I../../inc xclibel1.c ../../lib/pxipl_aarch64.a ../../lib/xclib_aarch64.a -lm
+ *
+ *	Compile with GCC w/out PXIPL for 32 bit Linux on nVidia/ARM TK1 as:
+ *
+ *	    gcc -DC_GNU64=400 -DOS_LINUX -I../../inc xclibel1.c ../../lib/xclib_armv7l.a -lm
+ *
+ *	Compile with GCC with PXIPL for 32 bit Linux on nVidia/ARM TK1 as:
+ *
+ *	    gcc -DC_GNU64=400 -DOS_LINUX -I../../inc xclibel1.c ../../lib/pxipl_armv7l.a ../../lib/xclib_armv7l.a -lm
+ *
+ *	Run as:
+ *	    ./a.out
+ *
+ */
+
+const int g400_width = 2048;
+const int g400_height = 2048;
+
+class G400Camrea : public CameraBase
+{
+public:
+    G400Camrea();
+    ~G400Camrea();
+    bool init();
+    void close();
+    void startCapture();
+    void stopCapture();
+    bool readCurrentFrame();
+protected:
+    void run();
+private:
+    void contrastStretch(float up_factor = 4.0f, float low_factor = 1.0f);
+private:
+    pxbuffer_t m_buffer_idx;
+    //ushort* m_mono16_raw; /// original image
+    Mat m_mono16;
+    Mat m_mono8;
+    Mat m_rgb8;
+
+    int m_img_width; /// image size
+    int m_img_height;
+    //cv::Mat m_img_mono8;
+
+};
+
+#endif // G400CAMREA_H
